@@ -8,8 +8,8 @@ ARG DEFAULT_DATA_DIR="/usr/local/share/template-files/data"
 ARG DEFAULT_CONF_DIR="/usr/local/share/template-files/config"
 ARG DEFAULT_TEMPLATE_DIR="/usr/local/share/template-files/defaults"
 
-ARG SERVICE_PORT=""
-ARG EXPOSE_PORTS=""
+ARG SERVICE_PORT="8080"
+ARG EXPOSE_PORTS="8025"
 ARG NODE_VERSION="system"
 ARG NODE_MANAGER="system"
 ARG BUILD_VERSION="latest"
@@ -31,6 +31,8 @@ ARG LICENSE \
   DEFAULT_DATA_DIR \
   DEFAULT_CONF_DIR \
   DEFAULT_TEMPLATE_DIR
+
+USER root
 
 ARG PACK_LIST="bash sudo tini iproute2 procps net-tools"
 
