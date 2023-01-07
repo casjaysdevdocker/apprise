@@ -264,7 +264,8 @@ unset create_data create_data_name create_config create_config_name create_conf 
 [ -f "/config/.docker_has_run" ] || { [ -d "/config" ] && echo "Initialized on: $(date)" >"/config/.docker_has_run"; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Additional commands
-
+[ -d "/config/apprise" ] || mkdir -p "/config/apprise"
+chown -Rf www-data:www-data "/config" "/data"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Show message
 echo "Container ip address is: $CONTAINER_IP_ADDRESS"
