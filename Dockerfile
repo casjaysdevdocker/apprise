@@ -13,11 +13,12 @@ ARG EXPOSE_PORTS="8025"
 ARG NODE_VERSION="system"
 ARG NODE_MANAGER="system"
 ARG BUILD_VERSION="latest"
+ARG USER root
 
 FROM caronc/apprise:latest AS build
 
 ARG DEBIAN_VERSION="bullseye"
-
+USER root
 ARG LICENSE \
   TIMEZONE \
   IMAGE_NAME \
