@@ -14,7 +14,7 @@ ARG NODE_VERSION="system"
 ARG NODE_MANAGER="system"
 ARG BUILD_VERSION="latest"
 
-FROM caronc/apprise-api:latest AS build
+FROM caronc/apprise:latest AS build
 
 ARG DEBIAN_VERSION="bullseye"
 
