@@ -33,8 +33,6 @@ ARG LICENSE \
   DEFAULT_CONF_DIR \
   DEFAULT_TEMPLATE_DIR
 
-USER root
-
 ARG PACK_LIST="bash sudo tini iproute2 procps net-tools"
 
 ENV LANG="en_US.UTF-8"
