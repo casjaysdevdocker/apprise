@@ -3,21 +3,22 @@ ARG LICENSE="MIT"
 ARG IMAGE_NAME="apprise"
 ARG PHP_SERVER="apprise"
 ARG TIMEZONE="America/New_York"
-ARG BUILD_DATE="Fri Feb 24 01:48:29 AM EST 2023"
+ARG BUILD_DATE="Fri Feb 24 02:49:17 AM EST 2023"
 ARG DEFAULT_DATA_DIR="/usr/local/share/template-files/data"
 ARG DEFAULT_CONF_DIR="/usr/local/share/template-files/config"
 ARG DEFAULT_TEMPLATE_DIR="/usr/local/share/template-files/defaults"
 
 ARG SERVICE_PORT="8080"
 ARG EXPOSE_PORTS="8025"
+ARG PHP_VERSION=""
 ARG NODE_VERSION="system"
 ARG NODE_MANAGER="system"
 
 ARG USER="root"
-ARG DEBIAN_VERSION="11"
+ARG DISTRO_VERSION="11"
 ARG CONTAINER_VERSION="latest"
 ARG IMAGE_VERSION="latest"
-ARG BUILD_VERSION="${DEBIAN_VERSION}"
+ARG BUILD_VERSION="${DISTRO_VERSION}"
 
 FROM caronc/apprise:${IMAGE_VERSION} AS build
 ARG USER
@@ -34,9 +35,10 @@ ARG BUILD_VERSION
 ARG DEFAULT_DATA_DIR
 ARG DEFAULT_CONF_DIR
 ARG DEFAULT_TEMPLATE_DIR
-ARG DEBIAN_VERSION
+ARG DISTRO_VERSION
+ARG PHP_VERSION
 
-ARG PACK_LIST="bash sudo tini iproute2 procps net-tools python3-pip "
+ARG PACK_LIST="bash sudo tini iproute2 procps net-tools python3-pip"
 
 ENV ENV=~/.bashrc
 ENV LANG="en_US.UTF-8"
@@ -57,10 +59,10 @@ RUN set -ex; \
   dpkg-reconfigure --frontend=noninteractive locales ; update-locale LANG=$LANG ; \
   echo 'export DEBIAN_FRONTEND="'${DEBIAN_FRONTEND}'"' >"/etc/profile.d/apt.sh" && chmod 755 "/etc/profile.d/apt.sh" && \
   DEBIAN_CODENAME="$(grep -s 'VERSION_CODENAME=' /etc/os-release | awk -F'=' '{print $2}')" ; \
-  [ -z "$DEBIAN_CODENAME" ] || sed -i "s|$DEBIAN_CODENAME|$DEBIAN_VERSION|g" "/etc/apt/sources.list" ; \
+  [ -z "$DEBIAN_CODENAME" ] || sed -i "s|$DEBIAN_CODENAME|$DISTRO_VERSION|g" "/etc/apt/sources.list" ; \
   apt-get update -yy && apt-get upgrade -yy && apt-get install -yy ${PACK_LIST}
 
-RUN pip install mailrise apprise
+RUN echo
 
 RUN echo 'Running cleanup' ; \
   update-alternatives --install /bin/sh sh /bin/bash 1 ; \
@@ -77,21 +79,22 @@ RUN echo 'Running cleanup' ; \
   if [ -d "/lib/systemd/system/sysinit.target.wants" ]; then cd "/lib/systemd/system/sysinit.target.wants" && rm $(ls | grep -v systemd-tmpfiles-setup) ; fi
 
 FROM scratch
-ARG USER="${USER}"
-ARG LICENSE="${LICENSE}"
-ARG TIMEZONE="${TIMEZONE}"
-ARG IMAGE_NAME="${IMAGE_NAME}"
-ARG PHP_SERVER="${PHP_SERVER}"
-ARG BUILD_DATE="${BUILD_DATE}"
-ARG SERVICE_PORT="${SERVICE_PORT}"
-ARG EXPOSE_PORTS="${EXPOSE_PORTS}"
-ARG NODE_VERSION="${NODE_VERSION}"
-ARG NODE_MANAGER="${NODE_MANAGER}"
-ARG BUILD_VERSION="${BUILD_VERSION}"
-ARG DEFAULT_DATA_DIR="${DEFAULT_DATA_DIR}"
-ARG DEFAULT_CONF_DIR="${DEFAULT_CONF_DIR}"
-ARG DEFAULT_TEMPLATE_DIR="${DEFAULT_TEMPLATE_DIR}"
-ARG PHP_VERSION="${PHP_VERSION}"
+ARG USER
+ARG LICENSE
+ARG TIMEZONE
+ARG IMAGE_NAME
+ARG PHP_SERVER
+ARG BUILD_DATE
+ARG SERVICE_PORT
+ARG EXPOSE_PORTS
+ARG NODE_VERSION
+ARG NODE_MANAGER
+ARG BUILD_VERSION
+ARG DEFAULT_DATA_DIR
+ARG DEFAULT_CONF_DIR
+ARG DEFAULT_TEMPLATE_DIR
+ARG DISTRO_VERSION
+ARG PHP_VERSION
 
 USER ${USER}
 WORKDIR /home/${USER}
