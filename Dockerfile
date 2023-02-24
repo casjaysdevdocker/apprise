@@ -3,7 +3,7 @@ ARG LICENSE="MIT"
 ARG IMAGE_NAME="apprise"
 ARG PHP_SERVER="apprise"
 ARG TIMEZONE="America/New_York"
-ARG BUILD_DATE="Fri Jan  6 10:42:31 PM EST 2023"
+ARG BUILD_DATE="Fri Feb 24 01:48:29 AM EST 2023"
 ARG DEFAULT_DATA_DIR="/usr/local/share/template-files/data"
 ARG DEFAULT_CONF_DIR="/usr/local/share/template-files/config"
 ARG DEFAULT_TEMPLATE_DIR="/usr/local/share/template-files/defaults"
@@ -12,32 +12,35 @@ ARG SERVICE_PORT="8080"
 ARG EXPOSE_PORTS="8025"
 ARG NODE_VERSION="system"
 ARG NODE_MANAGER="system"
-ARG BUILD_VERSION="latest"
-ARG USER root
 
-FROM caronc/apprise:latest AS build
+ARG USER="root"
+ARG DEBIAN_VERSION="11"
+ARG CONTAINER_VERSION="latest"
+ARG IMAGE_VERSION="latest"
+ARG BUILD_VERSION="${DEBIAN_VERSION}"
 
-ARG DEBIAN_VERSION="bullseye"
-USER root
-ARG LICENSE \
-  TIMEZONE \
-  IMAGE_NAME \
-  PHP_SERVER \
-  BUILD_DATE \
-  SERVICE_PORT \
-  EXPOSE_PORTS \
-  NODE_VERSION \
-  NODE_MANAGER \
-  BUILD_VERSION \
-  DEFAULT_DATA_DIR \
-  DEFAULT_CONF_DIR \
-  DEFAULT_TEMPLATE_DIR
+FROM caronc/apprise:${IMAGE_VERSION} AS build
+ARG USER
+ARG LICENSE
+ARG TIMEZONE
+ARG IMAGE_NAME
+ARG PHP_SERVER
+ARG BUILD_DATE
+ARG SERVICE_PORT
+ARG EXPOSE_PORTS
+ARG NODE_VERSION
+ARG NODE_MANAGER
+ARG BUILD_VERSION
+ARG DEFAULT_DATA_DIR
+ARG DEFAULT_CONF_DIR
+ARG DEFAULT_TEMPLATE_DIR
+ARG DEBIAN_VERSION
 
-ARG PACK_LIST="bash sudo tini iproute2 procps net-tools"
+ARG PACK_LIST="bash sudo tini iproute2 procps net-tools python3-pip "
 
+ENV ENV=~/.bashrc
 ENV LANG="en_US.UTF-8"
 ENV LANGUAGE="en_US.UTF-8"
-ENV ENV=ENV=~/.bashrc
 ENV TZ="America/New_York"
 ENV SHELL="/bin/sh"
 ENV TERM="xterm-256color"
@@ -45,6 +48,7 @@ ENV TIMEZONE="${TZ:-$TIMEZONE}"
 ENV HOSTNAME="casjaysdev-apprise"
 ENV DEBIAN_FRONTEND="noninteractive"
 
+USER ${USER}
 COPY ./rootfs/. /
 
 RUN set -ex; \
@@ -73,57 +77,59 @@ RUN echo 'Running cleanup' ; \
   if [ -d "/lib/systemd/system/sysinit.target.wants" ]; then cd "/lib/systemd/system/sysinit.target.wants" && rm $(ls | grep -v systemd-tmpfiles-setup) ; fi
 
 FROM scratch
+ARG USER="${USER}"
+ARG LICENSE="${LICENSE}"
+ARG TIMEZONE="${TIMEZONE}"
+ARG IMAGE_NAME="${IMAGE_NAME}"
+ARG PHP_SERVER="${PHP_SERVER}"
+ARG BUILD_DATE="${BUILD_DATE}"
+ARG SERVICE_PORT="${SERVICE_PORT}"
+ARG EXPOSE_PORTS="${EXPOSE_PORTS}"
+ARG NODE_VERSION="${NODE_VERSION}"
+ARG NODE_MANAGER="${NODE_MANAGER}"
+ARG BUILD_VERSION="${BUILD_VERSION}"
+ARG DEFAULT_DATA_DIR="${DEFAULT_DATA_DIR}"
+ARG DEFAULT_CONF_DIR="${DEFAULT_CONF_DIR}"
+ARG DEFAULT_TEMPLATE_DIR="${DEFAULT_TEMPLATE_DIR}"
+ARG PHP_VERSION="${PHP_VERSION}"
 
-ARG LICENSE \
-  TIMEZONE \
-  IMAGE_NAME \
-  PHP_SERVER \
-  BUILD_DATE \
-  SERVICE_PORT \
-  EXPOSE_PORTS \
-  NODE_VERSION \
-  NODE_MANAGER \
-  BUILD_VERSION \
-  DEFAULT_DATA_DIR \
-  DEFAULT_CONF_DIR \
-  DEFAULT_TEMPLATE_DIR
+USER ${USER}
+WORKDIR /home/${USER}
 
-LABEL maintainer="CasjaysDev <docker-admin@casjaysdev.com>" \
-  org.opencontainers.image.vendor="CasjaysDev" \
-  org.opencontainers.image.authors="CasjaysDev" \
-  org.opencontainers.image.vcs-type="Git" \
-  org.opencontainers.image.name="${IMAGE_NAME}" \
-  org.opencontainers.image.base.name="${IMAGE_NAME}" \
-  org.opencontainers.image.license="${LICENSE}" \
-  org.opencontainers.image.vcs-ref="${BUILD_VERSION}" \
-  org.opencontainers.image.build-date="${BUILD_DATE}" \
-  org.opencontainers.image.version="${BUILD_VERSION}" \
-  org.opencontainers.image.schema-version="${BUILD_VERSION}" \
-  org.opencontainers.image.url="https://hub.docker.com/r/casjaysdevdocker/${IMAGE_NAME}" \
-  org.opencontainers.image.vcs-url="https://github.com/casjaysdevdocker/${IMAGE_NAME}" \
-  org.opencontainers.image.url.source="https://github.com/casjaysdevdocker/${IMAGE_NAME}" \
-  org.opencontainers.image.documentation="https://hub.docker.com/r/casjaysdevdocker/${IMAGE_NAME}" \
-  org.opencontainers.image.description="Containerized version of ${IMAGE_NAME}" \
-  com.github.containers.toolbox="false"
+LABEL maintainer="CasjaysDev <docker-admin@casjaysdev.com>"
+LABEL org.opencontainers.image.vendor="CasjaysDev"
+LABEL org.opencontainers.image.authors="CasjaysDev"
+LABEL org.opencontainers.image.vcs-type="Git"
+LABEL org.opencontainers.image.name="${IMAGE_NAME}"
+LABEL org.opencontainers.image.base.name="${IMAGE_NAME}"
+LABEL org.opencontainers.image.license="${LICENSE}"
+LABEL org.opencontainers.image.vcs-ref="${BUILD_VERSION}"
+LABEL org.opencontainers.image.build-date="${BUILD_DATE}"
+LABEL org.opencontainers.image.version="${BUILD_VERSION}"
+LABEL org.opencontainers.image.schema-version="${BUILD_VERSION}"
+LABEL org.opencontainers.image.url="https://hub.docker.com/r/casjaysdevdocker/${IMAGE_NAME}"
+LABEL org.opencontainers.image.vcs-url="https://github.com/casjaysdevdocker/${IMAGE_NAME}"
+LABEL org.opencontainers.image.url.source="https://github.com/casjaysdevdocker/${IMAGE_NAME}"
+LABEL org.opencontainers.image.documentation="https://hub.docker.com/r/casjaysdevdocker/${IMAGE_NAME}"
+LABEL org.opencontainers.image.description="Containerized version of ${IMAGE_NAME}"
+LABEL com.github.containers.toolbox="false"
 
-ENV LANG=en_US.UTF-8 \
-  ENV=~/.bashrc \
-  SHELL="/bin/bash" \
-  PORT="${SERVICE_PORT}" \
-  TERM="xterm-256color" \
-  PHP_SERVER="${PHP_SERVER}" \
-  NODE_VERSION="${NODE_VERSION}" \
-  NODE_MANAGER="${NODE_MANAGER}" \
-  CONTAINER_NAME="${IMAGE_NAME}" \
-  TZ="${TZ:-America/New_York}" \
-  TIMEZONE="${TZ:-$TIMEZONE}" \
-  HOSTNAME="casjaysdev-${IMAGE_NAME}" \
-  USER="root"
+ENV LANG=en_US.UTF-8
+ENV ENV=~/.bashrc
+ENV SHELL="/bin/bash"
+ENV PORT="${SERVICE_PORT}"
+ENV TERM="xterm-256color"
+ENV PHP_SERVER="${PHP_SERVER}"
+ENV PHP_VERSION="${PHP_VERSION}"
+ENV NODE_VERSION="${NODE_VERSION}"
+ENV NODE_MANAGER="${NODE_MANAGER}"
+ENV CONTAINER_NAME="${IMAGE_NAME}"
+ENV TZ="${TZ:-America/New_York}"
+ENV TIMEZONE="${TZ:-$TIMEZONE}"
+ENV HOSTNAME="casjaysdev-${IMAGE_NAME}"
+ENV USER="${USER}"
 
 COPY --from=build /. /
-
-USER root
-WORKDIR /root
 
 VOLUME [ "/config","/data" ]
 

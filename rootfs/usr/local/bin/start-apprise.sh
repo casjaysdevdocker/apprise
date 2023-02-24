@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202301062236-git
+##@Version           :  202302232346-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.com
 # @@License          :  WTFPL
-# @@ReadME           :  start-mailrise.sh --help
+# @@ReadME           :  start-apprise.sh --help
 # @@Copyright        :  Copyright: (c) 2023 Jason Hempstead, Casjays Developments
-# @@Created          :  Friday, Jan 06, 2023 22:36 EST
-# @@File             :  start-mailrise.sh
+# @@Created          :  Thursday, Feb 23, 2023 23:46 EST
+# @@File             :  start-apprise.sh
 # @@Description      :  script to start apprise
 # @@Changelog        :  New script
 # @@TODO             :  Better documentation
@@ -31,38 +31,36 @@ __pgrep() { __pcheck "$1" || ps aux 2>/dev/null | grep -Fw " $1" | grep -qv ' gr
 __certbot() {
   [ -n "$DOMAINNAME" ] && [ -n "$CERT_BOT_MAIL" ] || { echo "The variables DOMAINNAME and CERT_BOT_MAIL are set" && exit 1; }
   [ "$SSL_CERT_BOT" = "true" ] && type -P certbot &>/dev/null || { export SSL_CERT_BOT="" && return 10; }
-  certbot $1 --agree-tos -m $CERT_BOT_MAIL certonly --webroot -w "${WWW_ROOT_DIR:-/data/htdocs/www}" -d $DOMAINNAME -d $DOMAINNAME \
+  certbot $1 --agree-tos -m $CERT_BOT_MAIL certonly --webroot \
+    -w "${WWW_ROOT_DIR:-/data/htdocs/www}" -d $DOMAINNAME -d $DOMAINNAME \
     --put-all-related-files-into "$SSL_DIR" -key-path "$SSL_KEY" -fullchain-path "$SSL_CERT"
+  return $?
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __heath_check() {
   local healthStatus=0 health="Good"
-  #__pgrep ${1:-apprise} &>/dev/null || healthStatus=$((healthStatus + 1))
+  #__pgrep ${1:-$SERVICE_NAME} &>/dev/null || healthStatus=$((healthStatus + 1))
   #__curl "http://localhost:$SERVICE_PORT/server-health" || healthStatus=$((healthStatus + 1))
   [ "$healthStatus" -eq 0 ] || health="Errors reported see docker logs --follow $CONTAINER_NAME"
-  return ${healthStatus:-$?}
+  return $healthStatus
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __exec_command() {
   local exitCode=0
   local cmd="${*:-bash -l}"
   echo "Executing: $cmd"
-  $cmd || exitCode=1
+  eval $cmd || exitCode=1
   [ "$exitCode" = 0 ] || exitCode=10
-  return ${exitCode:-$?}
-}
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-__exec_pre_start() {
-  true
+  return $exitCode
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __exec_service_start() {
-  local exitCode=0
-  local cmd="${*:-false}"
+  [ -n "$DEBUG" ] && set -x
+  local exitCode=0 cmd="${SERVICE_COMMAND:-false}"
   echo "Setting up service to run as $SERVICE_USER"
   echo "Executing: $cmd "
   if [ "$SERVICE_USER" = "root" ]; then
-    su_cmd() { $cmd || return 1; }
+    su_cmd() { eval "$@" || return 1; }
   elif [ "$(builtin type -P su)" ]; then
     su_cmd() { su -s /bin/sh - $SERVICE_USER -c "$@" || return 1; }
   elif [ "$(builtin type -P runuser)" ]; then
@@ -73,18 +71,31 @@ __exec_service_start() {
     echo "Can not switch to $SERVICE_USER"
     exit 10
   fi
-  su_cmd "$cmd" || exitCode=1
-  su_cmd "touch /tmp/$SERVICE_NAME.pid"
-  [ "$exitCode" = 0 ] || exitCode=10
-  return ${exitCode:-$?}
+  su_cmd "$cmd" && su_cmd "touch /tmp/$SERVICE_NAME.pid" || exitCode=1
+  [ "$exitCode" -ne 0 ] && exitCode=10 && rm -Rf "/tmp/$SERVICE_NAME.pid"
+  return $exitCode
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __start_message() {
+  __pgrep "$SERVICE_NAME" && [ -f "/tmp/$SERVICE_NAME.pid" ] && echo "$SERVICE_NAME is running" && exit 0
   if [ "$ENTRYPOINT_MESSAGE" = "false" ]; then
     echo "Starting $SERVICE_NAME on port: $SERVICE_PORT"
   else
     echo "Starting $SERVICE_NAME on: $CONTAINER_IP_ADDRESS:$SERVICE_PORT"
   fi
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+__exec_pre_start() {
+  __start_message
+  /usr/bin/supervisord -c /opt/apprise/webapp/etc/supervisord.conf &
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+__run_backup() {
+  local save="" date=""
+  save="${1:-$BACKUP_DIR}"
+  date="$(date '+%Y%m%d-%H%M')"
+  tar cfvz "$save/$date.tar.gz" --exclude="$save" "/data" "/config"
+  return $?
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set variables
@@ -93,6 +104,7 @@ LANG="${LANG:-C.UTF-8}"
 DOMAINNAME="${DOMAINNAME:-}"
 TZ="${TZ:-America/New_York}"
 PORT="${SERVICE_PORT:-$PORT}"
+PHP_VERSION="${PHP_VERSION//php/}"
 HOSTNAME="${HOSTNAME:-casjaysdev-apprise}"
 HOSTADMIN="${HOSTADMIN:-root@${DOMAINNAME:-$HOSTNAME}}"
 SSL_CERT_BOT="${SSL_CERT_BOT:-false}"
@@ -102,6 +114,7 @@ SSL_CA="${SSL_CA:-$SSL_DIR/ca.crt}"
 SSL_KEY="${SSL_KEY:-$SSL_DIR/server.key}"
 SSL_CERT="${SSL_CERT:-$SSL_DIR/server.crt}"
 SSL_CONTAINER_DIR="${SSL_CONTAINER_DIR:-/etc/ssl/CA}"
+BACKUP_DIR="${BACKUP_DIR:-/config/backup}"
 WWW_ROOT_DIR="${WWW_ROOT_DIR:-/data/htdocs}"
 LOCAL_BIN_DIR="${LOCAL_BIN_DIR:-/usr/local/bin}"
 DATA_DIR_INITIALIZED="${DATA_DIR_INITIALIZED:-}"
@@ -117,9 +130,9 @@ CONTAINER_IP_ADDRESS="$(ip a 2>/dev/null | grep 'inet' | grep -v '127.0.0.1' | a
 # Overwrite variables
 WORKDIR=""
 SERVICE_PORT="$PORT"
-SERVICE_NAME="/usr/local/bin/mailrise /config/mailrise.conf"
+SERVICE_NAME="mailrise"
 SERVICE_USER="${SERVICE_USER:-root}"
-SERVICE_COMMAND="$SERVICE_NAME"
+SERVICE_COMMAND="$SERVICE_NAME /config/mailrise.conf"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 [ "$SERVICE_PORT" = "443" ] && SSL_ENABLED="true"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -150,6 +163,9 @@ if [ "$DATA_DIR_INITIALIZED" = "false" ] && [ -d "$DEFAULT_DATA_DIR/data/htdocs"
   [ -d "/data" ] && cp -Rf "$DEFAULT_DATA_DIR/data/htdocs/." "$WWW_ROOT_DIR/" 2>/dev/null
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Create the backup dir
+[ -d "$BACKUP_DIR" ] || mkdir -p "$BACKUP_DIR"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Post copy commands
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -176,6 +192,11 @@ healthcheck)
   exit $?
   ;;
 
+backup)
+  shift 1
+  __run_backup "${1:-$BACKUP_DIR}"
+  ;;
+
 certbot)
   shift 1
   SSL_CERT_BOT="true"
@@ -191,13 +212,7 @@ certbot)
   ;;
 
 *)
-  if __pgrep "$SERVICE_NAME" && [ -f "/tmp/$SERVICE_NAME.pid" ]; then
-    echo "$SERVICE_NAME is running"
-  else
-    __start_message
-    __exec_pre_start
-    __exec_service_start "$SERVICE_COMMAND" || rm -Rf "/tmp/$SERVICE_NAME.pid"
-  fi
+  __exec_pre_start && __exec_service_start
   ;;
 esac
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

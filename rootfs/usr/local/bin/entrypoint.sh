@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202301062236-git
+##@Version           :  202302232346-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.com
 # @@License          :  WTFPL
 # @@ReadME           :  entrypoint.sh --help
 # @@Copyright        :  Copyright: (c) 2023 Jason Hempstead, Casjays Developments
-# @@Created          :  Friday, Jan 06, 2023 22:36 EST
+# @@Created          :  Thursday, Feb 23, 2023 23:46 EST
 # @@File             :  entrypoint.sh
 # @@Description      :  entrypoint point for apprise
 # @@Changelog        :  New script
 # @@TODO             :  Better documentation
-# @@Other            :
-# @@Resource         :
+# @@Other            :  
+# @@Resource         :  
 # @@Terminal App     :  no
 # @@sudo/root        :  no
 # @@Template         :  other/docker-entrypoint
@@ -50,15 +50,14 @@ __certbot() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __heath_check() {
   status=0 health="Good"
-  start-mailrise.sh healthcheck || status=$((status + 1))
+  start-apprise.sh healthcheck || status=$((status + 1))
   [ "$status" -eq 0 ] || health="Errors reported see docker logs --follow $CONTAINER_NAME"
   echo "$(uname -s) $(uname -m) is running and the health is: $health"
   return $status
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __start_all_services() {
-  start-supervisord.sh
-  start-mailrise.sh
+  start-apprise.sh
   return $?
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -75,6 +74,7 @@ DISPLAY="${DISPLAY:-}"
 LANG="${LANG:-C.UTF-8}"
 DOMAINNAME="${DOMAINNAME:-}"
 TZ="${TZ:-America/New_York}"
+PHP_VERSION="${PHP_VERSION//php/}"
 SERVICE_USER="${SERVICE_USER:-root}"
 SERVICE_PORT="${SERVICE_PORT:-$PORT}"
 HOSTNAME="${HOSTNAME:-casjaysdev-apprise}"
@@ -100,7 +100,7 @@ SERVICE_NAME="apprise"
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Show start message
-export ENTRYPOINT_MESSAGE="false"
+ENTRYPOINT_MESSAGE="false"
 echo "Executing entrypoint script for $SERVICE_NAME"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 [ "$SERVICE_PORT" = "443" ] && SSL_ENABLED="true"
@@ -113,7 +113,7 @@ echo "Executing entrypoint script for $SERVICE_NAME"
 export USER LANG TZ DOMAINNAME HOSTNAME HOSTADMIN SSL_ENABLED SSL_DIR SSL_CA
 export SSL_KEY SERVICE_NAME SSL_DIR LOCAL_BIN_DIR SSL_CONTAINER_DIR SSL_CERT_BOT
 export DEFAULT_CONF_DIR CONTAINER_IP_ADDRESS DISPLAY CONFIG_DIR_INITIALIZED DATA_DIR_INITIALIZED
-export SERVICE_USER
+export SERVICE_USER ENTRYPOINT_MESSAGE PHP_VERSION
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # import variables from file
 [ -f "/root/env.sh" ] && . "/root/env.sh"
@@ -264,8 +264,7 @@ unset create_data create_data_name create_config create_config_name create_conf 
 [ -f "/config/.docker_has_run" ] || { [ -d "/config" ] && echo "Initialized on: $(date)" >"/config/.docker_has_run"; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Additional commands
-[ -d "/config/apprise" ] || mkdir -p "/config/apprise"
-chown -Rf www-data:www-data "/config" "/data"
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Show message
 echo "Container ip address is: $CONTAINER_IP_ADDRESS"
