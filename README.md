@@ -1,6 +1,6 @@
 ## 👋 Welcome to apprise 🚀  
 
-Description  
+apprise README  
   
   
 ## Install my system scripts  

@@ -1,7 +1,4 @@
-# gitignore created on 02/24/23 at 01:02
-# Disable reminder in prompt
-ignoredirmessage
-
+# gitignore created on 03/09/23 at 19:49
 # Disable reminder in prompt
 ignoredirmessage
 
@@ -76,9 +73,6 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
-# Other
-**/.installed
-
 # ignore commit message
 **/.gitcommit
 
@@ -93,4 +87,7 @@ $RECYCLE.BIN/
 
 # ignore .no_git files
 **/.no_git
+
+# ignore .installed files
+**/.installed
 
