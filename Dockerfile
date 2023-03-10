@@ -12,8 +12,8 @@ ARG DEFAULT_CONF_DIR="/usr/local/share/template-files/config"
 ARG DEFAULT_TEMPLATE_DIR="/usr/local/share/template-files/defaults"
 
 ARG IMAGE_REPO="debian"
-ARG IMAGE_VERSION="latest"
-ARG CONTAINER_VERSION="${IMAGE_VERSION}"
+ARG IMAGE_VERSION="bullseye"
+ARG CONTAINER_VERSION="latest"
 
 ARG SERVICE_PORT="8080"
 ARG EXPOSE_PORTS="8080 8025"
