@@ -47,7 +47,7 @@ ARG DEFAULT_TEMPLATE_DIR
 ARG DISTRO_VERSION
 
 ARG PACK_LIST="bash bash-completion git curl wget sudo tini xz-utils iproute2 locales procps net-tools bsd-mailx  \
-  supervisord python3-pip"
+  supervisor python3-pip postfix"
 
 ENV ENV=~/.bashrc
 ENV SHELL="/bin/sh"
