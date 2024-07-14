@@ -9,11 +9,11 @@
 # @@Copyright        :  Copyright: (c) 2023 Jason Hempstead, Casjays Developments
 # @@Created          :  Monday, Aug 28, 2023 18:48 EDT
 # @@File             :  zz-default.sh
-# @@Description      :  
+# @@Description      :
 # @@Changelog        :  New script
 # @@TODO             :  Better documentation
-# @@Other            :  
-# @@Resource         :  
+# @@Other            :
+# @@Resource         :
 # @@Terminal App     :  no
 # @@sudo/root        :  no
 # @@Template         :  other/start-service
@@ -124,8 +124,8 @@ SERVICE_GID="0" # set the group id
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # execute command variables - keep single quotes variables will be expanded later
 EXEC_CMD_BIN='apprise' # command to execute
-EXEC_CMD_ARGS=''                          # command arguments
-EXEC_PRE_SCRIPT=''                        # execute script before
+EXEC_CMD_ARGS=''       # command arguments
+EXEC_PRE_SCRIPT=''     # execute script before
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Is this service a web server
 IS_WEB_SERVER="no"
@@ -574,7 +574,7 @@ fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # set switch user command
 if [ "$RUNAS_USER" = "root" ]; then
-  su_cmd() { eval "$*" || return 1; }
+  su_cmd() { eval "$@" || return 1; }
 elif [ "$(builtin type -P gosu)" ]; then
   su_cmd() { gosu $RUNAS_USER "$@" || return 1; }
 elif [ "$(builtin type -P runuser)" ]; then
