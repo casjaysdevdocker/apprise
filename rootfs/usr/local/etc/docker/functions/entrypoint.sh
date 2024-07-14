@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202308281453-git
+##@Version           :  202309030111-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  git-admin@casjaysdev.pro
-# @@License          :  WTFPL
+# @@License          :  LICENSE.md
 # @@ReadME           :  docker-entrypoint --help
 # @@Copyright        :  Copyright: (c) 2023 Jason Hempstead, Casjays Developments
-# @@Created          :  Monday, Aug 28, 2023 14:53 EDT
+# @@Created          :  Sunday, Sep 03, 2023 01:40 EDT
 # @@File             :  docker-entrypoint
 # @@Description      :  functions for my docker containers
 # @@Changelog        :  newScript
@@ -41,8 +41,8 @@ __is_dir_empty() { [ "$(ls -A "$1" 2>/dev/null | wc -l)" -eq 0 ] && return 0 || 
 __pcheck() { [ -n "$(which pgrep 2>/dev/null)" ] && pgrep -o "$1" &>/dev/null || return 10; }
 __file_exists_with_content() { [ -n "$1" ] && [ -f "$1" ] && [ -s "$1" ] && return 0 || return 2; }
 __sed() { sed -i 's|'$1'|'$2'|g' "$3" &>/dev/null || sed -i "s|$1|$2|g" "$3" &>/dev/null || return 1; }
-__ps() { [ -f "$(type -P ps)" ] && ps "$@" 2>/dev/null | grep -Fw " ${1:-$GEN_SCRIPT_REPLACE_APPNAME}" || return 10; }
-__pgrep() { __pcheck "${1:-GEN_SCRIPT_REPLACE_APPNAME}" || __ps "${1:-$GEN_SCRIPT_REPLACE_APPNAME}" | grep -qv ' grep' || return 10; }
+__ps() { [ -f "$(type -P ps)" ] && ps "$@" 2>/dev/null | grep -Fw " ${1:-$SERVICE_NAME}" || return 10; }
+__pgrep() { __pcheck "${1:-SERVICE_NAME}" || __ps "${1:-$SERVICE_NAME}" | grep -qv ' grep' || return 10; }
 __get_ip6() { ip a 2>/dev/null | grep -w 'inet6' | awk '{print $2}' | grep -vE '^::1|^fe' | sed 's|/.*||g' | head -n1 | grep '^' || echo ''; }
 __get_ip4() { ip a 2>/dev/null | grep -w 'inet' | awk '{print $2}' | grep -vE '^127.0.0' | sed 's|/.*||g' | head -n1 | grep '^' || echo '127.0.0.1'; }
 __find_file_relative() { find "$1"/* -not -path '*env/*' -not -path '.git*' -type f 2>/dev/null | sed 's|'$1'/||g' | sort -u | grep -v '^$' | grep '^' || false; }
@@ -133,6 +133,7 @@ __certbot() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __create_ssl_cert() {
+  local SSL_DIR="${SSL_DIR:-/etc/ssl}"
   if ! __certbot create; then
     [ -f "/config/env/ssl.sh" ] && . "/config/env/ssl.sh"
     [ -n "$SSL_DIR" ] || { echo "SSL_DIR is unset" && return 1; }
@@ -259,62 +260,60 @@ __cron() {
     eval "$command"
     sleep $interval
     [ -f "/run/cron/$cmd" ] || break
-  done |& tee /data/logs/cron.log
+  done |& tee -p /data/logs/cron.log
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __replace() {
-  [ $# -eq 3 ] && [ -e "$3" ] || return 1
-  grep -s -qR "$1" "$3" &>/dev/null && __sed "$1" "$2" "$3" || return 0
-  grep -s -qR "$2" "$3" && printf '%s\n' "Changed $1 to $2 in $3" && return 0 || {
-    printf '%s\n' "Failed to change $1 in $3" >&2 && return 2
-  }
+  local search="$1" replace="$2" file="${3:-$2}"
+  [ -e "$file" ] || return 1
+  __sed "$search" "$replace" "$file" || return 0
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __find_replace() {
-  [ $# -eq 3 ] && [ -e "$3" ] || return 1
-  grep -s -qR "$1" "$3" &>/dev/null || return 0
-  find "$3" -type f -not -path '.git*' -exec sed -i "s|$1|$2|g" {} \;
-  grep -s -qR "$2" "$3" && printf '%s\n' "Changed $1 to $2 in $3" && return 0 || {
-    printf '%s\n' "Failed to change $1 in $3" >&2 && return 2
-  }
+  local search="$1" replace="$2" file="${3:-$2}"
+  [ -e "$file" ] || return 1
+  find "$file" -type f -not -path '.git*' -exec sed -i "s|$search|$replace|g" {} \;
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # /config > /etc
 __copy_templates() {
-  if [ -e "$1" ] && __is_dir_empty "$2"; then
-    __file_copy "$1" "$2"
+  local from="$1" to="$2"
+  if [ -e "$from" ] && __is_dir_empty "$to"; then
+    __file_copy "$from" "$to"
   fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# /config/file > /etc/files
+# /config/file > /etc/file
 __symlink() {
-  if [ -e "$2" ]; then
-    [ -e "$1" ] && rm -Rf "$1"
-    ln -sf "$2" "$1" && echo "Created symlink to $1 > $2"
+  local from="$1" to="$2"
+  if [ -e "$to" ]; then
+    [ -e "$from" ] && rm -rf "$from"
+    ln -sf "$to" "$from" && echo "Created symlink to $from > $to"
   fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __file_copy() {
-  if [ -n "$1" ] && [ -e "$1" ] && [ -n "$2" ]; then
-    if [ -d "$1" ]; then
-      if cp -Rf "$1/." "$2/" &>/dev/null; then
-        printf '%s\n' "Copied: $1 > $2"
+  local from="$1" to="$2"
+  if [ -n "$from" ] && [ -e "$from" ] && [ -n "$to" ]; then
+    if [ -d "$from" ]; then
+      if cp -Rf "$from/." "$to/" &>/dev/null; then
+        printf '%s\n' "Copied: $from > $to"
         return 0
       else
-        printf '%s\n' "Copy failed: $1 < $2" >&2
+        printf '%s\n' "Copy failed: $from < $to" >&2
         return 1
       fi
     else
-      if cp -Rf "$1" "$2" &>/dev/null; then
-        printf '%s\n' "Copied: $1 > $2"
+      if cp -Rf "$from" "$to" &>/dev/null; then
+        printf '%s\n' "Copied: $from > $to"
         return 0
       else
-        printf '%s\n' "Copy failed: $1 < $2" >&2
+        printf '%s\n' "Copy failed: $from < $to" >&2
         return 1
       fi
     fi
   else
-    printf '%s\n' "$1 does not exist"
+    printf '%s\n' "$from does not exist"
     return 2
   fi
 }
@@ -322,11 +321,72 @@ __file_copy() {
 __generate_random_uids() {
   local set_random_uid="$(seq 3000 50000 | sort -R | head -n 1)"
   while :; do
-    if ! grep -qs "x:.*:$set_random_uid:" "/etc/group" && ! grep -sq "x:$set_random_uid:.*:" "/etc/passwd"; then
+    if grep -qs "x:.*:$set_random_uid:" "/etc/group" && ! grep -sq "x:$set_random_uid:.*:" "/etc/passwd"; then
+      set_random_uid=$((set_random_uid + 1))
+    else
       echo "$set_random_uid"
       break
     fi
   done
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+__setup_directories() {
+  # Setup WWW_ROOT_DIR
+  if [ "$IS_WEB_SERVER" = "yes" ]; then
+    APPLICATION_DIRS="$APPLICATION_DIRS $WWW_ROOT_DIR"
+    __initialize_www_root
+    (echo "Creating directory $WWW_ROOT_DIR with permissions 755" && mkdir -p "$WWW_ROOT_DIR" && find "$WWW_ROOT_DIR" -type d -exec chmod -f 755 {} \;) |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
+  fi
+  # Setup DATABASE_DIR
+  if [ "$IS_DATABASE_SERVICE" = "yes" ]; then
+    APPLICATION_DIRS="$APPLICATION_DIRS $DATABASE_DIR"
+    if __is_dir_empty "$DATABASE_DIR" || [ ! -d "$DATABASE_DIR" ]; then
+      (echo "Creating directory $DATABASE_DIR with permissions 777" && mkdir -p "$DATABASE_DIR" && chmod -f 777 "$DATABASE_DIR") |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
+    fi
+  fi
+  # create default directories
+  for filedirs in $ADD_APPLICATION_DIRS $APPLICATION_DIRS; do
+    if [ -n "$filedirs" ] && [ ! -d "$filedirs" ]; then
+      (
+        echo "Creating directory $filedirs with permissions 777"
+        mkdir -p "$filedirs" && chmod -f 777 "$filedirs"
+      ) |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
+    fi
+  done
+  # create default files
+  for application_files in $ADD_APPLICATION_FILES $APPLICATION_FILES; do
+    if [ -n "$application_files" ] && [ ! -e "$application_files" ]; then
+      (
+        echo "Creating file $application_files with permissions 777"
+        touch "$application_files" && chmod -Rf 777 "$application_files"
+      ) |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
+    fi
+  done
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+__fix_permissions() {
+  # set user on files/folders
+  change_user="${1:-${SERVICE_USER:-root}}"
+  change_group="${2:-${SERVICE_GROUP:-$change_user}}"
+  [ -n "$RUNAS_USER" ] && [ "$RUNAS_USER" != "root" ] && change_user="$RUNAS_USER" && change_group="$change_user"
+  if [ -n "$change_user" ] && [ "$change_user" != "root" ]; then
+    if grep -sq "^$change_user:" "/etc/passwd"; then
+      for permissions in $ADD_APPLICATION_DIRS $APPLICATION_DIRS; do
+        if [ -n "$permissions" ] && [ -e "$permissions" ]; then
+          (chown -Rf $change_user:$change_group "$permissions" && echo "changed ownership on $permissions to user:$change_user and group:$change_group") |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
+        fi
+      done
+    fi
+  fi
+  if [ -n "$change_group" ] && [ "$change_group" != "root" ]; then
+    if grep -sq "^$change_group:" "/etc/group"; then
+      for permissions in $ADD_APPLICATION_DIRS $APPLICATION_DIRS; do
+        if [ -n "$permissions" ] && [ -e "$permissions" ]; then
+          (chgrp -Rf $change_group "$permissions" && echo "changed group ownership on $permissions to group $change_group") |& tee -p -a "$LOG_DIR/init.txt" &>/dev/null
+        fi
+      done
+    fi
+  fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __set_user_group_id() {
@@ -335,20 +395,17 @@ __set_user_group_id() {
   local set_gid="${3:-${SERVICE_GID:-10000}}"
   local random_id="$(__generate_random_uids)"
   local exitStatus=0
-  [ -n "$set_user" ] && [ -n "$set_uid" ] && [ -n "$set_gid" ] || return
   [ -n "$set_user" ] && [ "$set_user" != "root" ] || return
-  if [ -z "$set_uid" ] || [ "$set_uid" = "0" ]; then
-    set_uid="$random_id"
-  fi
-  if [ -z "$set_gid" ] || [ "$set_gid" = "0" ]; then
-    set_gid="$random_id"
-  fi
+  { [ -n "$set_uid" ] && [ "$set_uid" != "0" ]; } || return
+  { [ -n "$set_gid" ] && [ "$set_gid" != "0" ]; } || return
+  [ -n "$set_user" ] && [ -n "$set_uid" ] && [ -n "$set_gid" ] || return
   if grep -sq "^$set_user:" "/etc/passwd" "/etc/group"; then
     if ! grep -sq "x:.*:$set_gid:" "/etc/group"; then
-      groupmod -g "${set_gid}" $set_user | tee -a "${LOG_DIR/tmp/}/init.txt" &>/dev/null
+      groupmod -g "${set_gid}" $set_user | tee -p -a "${LOG_DIR/tmp/}/init.txt" &>/dev/null
+      chown -Rf $set_user
     fi
     if ! grep -sq "x:$set_uid:.*:" "/etc/passwd"; then
-      usermod -u "${set_uid}" -g "${set_gid}" $set_user | tee -a "${LOG_DIR/tmp/}/init.txt" &>/dev/null
+      usermod -u "${set_uid}" -g "${set_gid}" $set_user | tee -p -a "${LOG_DIR/tmp/}/init.txt" &>/dev/null
     fi
   fi
   export SERVICE_UID="$set_uid"
@@ -359,31 +416,26 @@ __create_service_user() {
   local create_user="${1:-$SERVICE_USER}"
   local create_group="${2:-$SERVICE_GROUP}"
   local create_home_dir="${3:-${WORK_DIR:-/home/$create_user}}"
-  local create_uid="${SERVICE_UID:-${USER_UID:-${4:-10000}}}"
-  local create_gid="${SERVICE_GID:-${USER_GID:-${5:-10000}}}"
+  local create_uid="${4:-${SERVICE_UID:-$USER_UID}}"
+  local create_gid="${5:-${SERVICE_GID:-$USER_GID}}"
   local random_id="$(__generate_random_uids)"
   local set_home_dir=""
   local exitStatus=0
+  { [ -n "$create_uid" ] && [ "$create_uid" != "0" ]; } || return
+  { [ -n "$create_gid" ] && [ "$create_gid" != "0" ]; } || return
   [ -n "$create_user" ] && [ -n "$create_group" ] && [ "$create_user" != "root" ] || return 0
-  if [ -z "$create_uid" ] || [ "$create_uid" = "0" ]; then
-    create_uid="$random_id"
-  fi
-  if [ -z "$create_gid" ] || [ "$create_gid" = "0" ]; then
-    create_gid="$random_id"
-  fi
-  if ! grep -sq "$create_group" "/etc/group"; then
+  if ! grep -sqE "$create_group|$create_user" "/etc/group"; then
     echo "creating system group $create_group"
-    groupadd -g $create_gid $create_group | tee -a "${LOG_DIR/tmp/}/init.txt" &>/dev/null
+    groupadd -g $create_gid $create_group | tee -p -a "${LOG_DIR/tmp/}/init.txt" &>/dev/null
   fi
-  if ! grep -sq "$create_user" "/etc/passwd"; then
+  if ! grep -sqE "$create_uid|$create_user" "/etc/passwd"; then
     echo "creating system user $create_user"
-    useradd -u $create_uid -g $create_gid -c "Account for $create_user" -d "$create_home_dir" -s /bin/false $create_user | tee -a "$LOG_DIR/tmp/init.txt" &>/dev/null
+    useradd -u $create_uid -g $create_gid -c "Account for $create_user" -d "$create_home_dir" -s /bin/false $create_user | tee -p -a "$LOG_DIR/tmp/init.txt" &>/dev/null
   fi
   grep -qs "$create_group" "/etc/group" || exitStatus=$((exitCode + 1))
   grep -qs "$create_user" "/etc/passwd" || exitStatus=$((exitCode + 1))
   [ $exitStatus -eq 0 ] && export WORK_DIR="${set_home_dir:-}"
-  export SERVICE_UID="$create_uid"
-  export SERVICE_GID="$create_gid"
+  export SERVICE_UID="$create_uid" SERVICE_GID="$create_gid"
   return $exitStatus
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -397,7 +449,7 @@ __create_env_file() {
     dir="$(dirname "$create_env")"
     [ -d "$dir" ] || mkdir -p "$dir"
     if [ -n "$create_env" ] && [ ! -f "$create_env" ]; then
-      cat <<EOF | tee "$create_env" &>/dev/null
+      cat <<EOF | tee -p "$create_env" &>/dev/null
 $(<"$sample_file")
 EOF
     fi
@@ -450,7 +502,7 @@ __start_init_scripts() {
           name="$(basename "$init")"
           (eval "$init" &)
           initStatus=$(($? + initStatus))
-          sleep 10
+          sleep 20
           echo ""
         fi
       done
@@ -476,7 +528,7 @@ __setup_mta() {
     [ -f "/etc/ssmtp/ssmtp.conf" ] && rm -Rf "/etc/ssmtp/ssmtp.conf"
     symlink_files="$(__find_file_relative "/config/ssmtp")"
     if [ ! -f "/config/ssmtp/ssmtp.conf" ]; then
-      cat <<EOF | tee "/config/ssmtp/ssmtp.conf" &>/dev/null
+      cat <<EOF | tee -p "/config/ssmtp/ssmtp.conf" &>/dev/null
 # ssmtp configuration.
 root=${account_user:-root}@${account_domain:-$HOSTNAME}
 mailhub=${relay_server:-172.17.0.1}:$relay_port
@@ -507,7 +559,7 @@ EOF
     [ -f "/etc/postfix/main.cf" ] && rm -Rf "/etc/postfix/main.cf"
     symlink_files="$(__find_file_relative "/config/postfix")"
     if [ ! -f "/config/postfix/main.cf" ]; then
-      cat <<EOF | tee "/config/postfix/main.cf" &>/dev/null
+      cat <<EOF | tee -p "/config/postfix/main.cf" &>/dev/null
 # postfix configuration.
 smtpd_banner = \$myhostname ESMTP email server
 compatibility_level = 2
@@ -557,13 +609,16 @@ EOF
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __initialize_web_health() {
-  [ $# -eq 1 ] && [ -d "$1" ] || return 1
-  [ -d "$1/health" ] || mkdir -p "$1/health"
-  [ -f "$1/health/index.txt" ] || echo 'OK' >"$1/health/index.txt"
-  [ -f "$1/health/index.json" ] || echo '{ "status": "OK" }' >"$1/health/index.json"
-  __find_replace "REPLACE_CONTAINER_IP4" "${REPLACE_CONTAINER_IP4:-127.0.0.1}" "$1"
-  __find_replace "REPLACE_COPYRIGHT_FOOTER" "${COPYRIGHT_FOOTER:-Copyright 1999 - $(date +'%Y')}" "$1"
-  __find_replace "REPLACE_LAST_UPDATED_ON_MESSAGE" "${LAST_UPDATED_ON_MESSAGE:-$(date +'Last updated on: %Y-%m-%d at %H:%M:%S')}" "$1"
+  local www_dir="${1:-${WWW_ROOT_DIR:-/usr/share/httpd/default}}"
+  [ $# -eq 1 ] && [ -d "$www_dir" ] || return 1
+  if ! echo "$www_dir" | grep -q '/usr/share/httpd'; then
+    [ -d "$www_dir/health" ] || mkdir -p "$www_dir/health"
+    [ -f "$www_dir/health/index.txt" ] || echo 'OK' >"$www_dir/health/index.txt"
+    [ -f "$www_dir/health/index.json" ] || echo '{ "status": "OK" }' >"$www_dir/health/index.json"
+    __find_replace "REPLACE_CONTAINER_IP4" "${REPLACE_CONTAINER_IP4:-127.0.0.1}" "$www_dir"
+    __find_replace "REPLACE_COPYRIGHT_FOOTER" "${COPYRIGHT_FOOTER:-Copyright 1999 - $(date +'%Y')}" "$www_dir"
+    __find_replace "REPLACE_LAST_UPDATED_ON_MESSAGE" "${LAST_UPDATED_ON_MESSAGE:-$(date +'Last updated on: %Y-%m-%d at %H:%M:%S')}" "$www_dir"
+  fi
   if [ -d "/usr/share/httpd" ]; then
     __find_replace "REPLACE_CONTAINER_IP4" "${REPLACE_CONTAINER_IP4:-127.0.0.1}" "/usr/share/httpd"
     __find_replace "REPLACE_COPYRIGHT_FOOTER" "${COPYRIGHT_FOOTER:-Copyright 1999 - $(date +'%Y')}" "/usr/share/httpd"
@@ -573,31 +628,62 @@ __initialize_web_health() {
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #  file_dir
 __initialize_replace_variables() {
-  [ $# -ne 0 ] || return 1 # REPLACE_GITEA_PROTO
-  __find_replace "REPLACE_SSL_DIR" "${SSL_DIR:-/etc/ssl}" "$1"
-  __find_replace "REPLACE_RANDOM_ID" "$(__random_password 8)" "$1"
-  __find_replace "REPLACE_TZ" "${TZ:-${TIMEZONE:-America/New_York}}" "$1"
-  __find_replace "REPLACE_SERVER_PROTO" "${SERVICE_PROTOCOL:-http}" "$1"
-  __find_replace "REPLACE_SERVER_SITE_TITLE" "${SERVER_SITE_TITLE:-CasjaysDev - Docker Container}" "$1"
-  __find_replace "REPLACE_TMP_DIR" "${TMP_DIR:-/tmp/$SERVICE_NAME}" "$1"
-  __find_replace "REPLACE_RUN_DIR" "${RUN_DIR:-/run/$SERVICE_NAME}" "$1"
-  __find_replace "REPLACE_LOG_DIR" "${LOG_DIR:-/data/log/$SERVICE_NAME}" "$1"
-  __find_replace "REPLACE_ETC_DIR" "${ETC_DIR:-/etc/$SERVICE_NAME}" "$1"
-  __find_replace "REPLACE_DATA_DIR" "${DATA_DIR:-/data/$SERVICE_NAME}" "$1"
-  __find_replace "REPLACE_CONFIG_DIR" "${CONF_DIR:-/config/$SERVICE_NAME}" "$1"
-  __find_replace "REPLACE_EMAIL_RELAY" "${EMAIL_RELAY:-172.17.0.1}" "$1"
-  __find_replace "REPLACE_SERVER_ADMIN" "${SERVER_ADMIN:-root@${EMAIL_DOMAIN:-${FULL_DOMAIN_NAME:-$HOSTNAME}}}" "$1"
-  __find_replace "REPLACE_WWW_USER" "${SERVICE_USER:-${RUNAS_USER:-root}}" "$1"
-  __find_replace "REPLACE_APP_USER" "${SERVICE_USER:-${RUNAS_USER:-root}}" "$1"
-  __find_replace "REPLACE_WWW_GROUP" "${SERVICE_GROUP:-${SERVICE_USER:-${RUNAS_USER:-root}}}" "$1"
-  __find_replace "REPLACE_APP_GROUP" "${SERVICE_GROUP:-${SERVICE_USER:-${RUNAS_USER:-root}}}" "$1"
-  [ -n "$SERVICE_PORT" ] && __find_replace "REPLACE_SERVER_PORT" "${SERVICE_PORT:-80}" "$1"             # ||{ [ "$DEBUGGER" = "on" ] && echo "SERVICE_PORT is not set": }
-  [ -n "$HOSTNAME" ] && __find_replace "REPLACE_SERVER_NAME" "${FULL_DOMAIN_NAME:-$HOSTNAME}" "$1"      # ||{ [ "$DEBUGGER" = "on" ] && echo "HOSTNAME is not set": }
-  [ -n "$CONTAINER_NAME" ] && __find_replace "REPLACE_SERVER_SOFTWARE" "${CONTAINER_NAME:-docker}" "$1" # ||{ [ "$DEBUGGER" = "on" ] && echo "CONTAINER_NAME is not set": }
-  [ -n "$WWW_ROOT_DIR" ] && __find_replace "REPLACE_SERVER_WWW_DIR" "${WWW_ROOT_DIR:-/usr/share/httpd/default}" "$1"
-  [ -n "$SERVICE_NAME" ] && [ -n "$DATABASE_DIR" ] && __find_replace "REPLACE_DATABASE_DIR" "${DATABASE_DIR:-/data/db/$SERVICE_NAME}" "$1"
+  local set_dir="" get_dir="$*"
+  [ $# -ne 0 ] || return 1
+  for set_dir in $get_dir; do
+    __find_replace "REPLACE_SSL_DIR" "${SSL_DIR:-/etc/ssl}" "$set_dir"
+    __find_replace "REPLACE_RANDOM_ID" "$(__random_password 8)" "$set_dir"
+    __find_replace "REPLACE_TZ" "${TZ:-${TIMEZONE:-America/New_York}}" "$set_dir"
+    __find_replace "REPLACE_SERVER_PROTO" "${SERVICE_PROTOCOL:-http}" "$set_dir"
+    __find_replace "REPLACE_SERVER_SITE_TITLE" "${SERVER_SITE_TITLE:-CasjaysDev - Docker Container}" "$set_dir"
+    __find_replace "REPLACE_TMP_DIR" "${TMP_DIR:-/tmp/$SERVICE_NAME}" "$set_dir"
+    __find_replace "REPLACE_RUN_DIR" "${RUN_DIR:-/run/$SERVICE_NAME}" "$set_dir"
+    __find_replace "REPLACE_LOG_DIR" "${LOG_DIR:-/data/log/$SERVICE_NAME}" "$set_dir"
+    __find_replace "REPLACE_ETC_DIR" "${ETC_DIR:-/etc/$SERVICE_NAME}" "$set_dir"
+    __find_replace "REPLACE_DATA_DIR" "${DATA_DIR:-/data/$SERVICE_NAME}" "$set_dir"
+    __find_replace "REPLACE_CONFIG_DIR" "${CONF_DIR:-/config/$SERVICE_NAME}" "$set_dir"
+    __find_replace "REPLACE_EMAIL_RELAY" "${EMAIL_RELAY:-172.17.0.1}" "$set_dir"
+    __find_replace "REPLACE_SERVER_ADMIN" "${SERVER_ADMIN:-root@${EMAIL_DOMAIN:-${FULL_DOMAIN_NAME:-$HOSTNAME}}}" "$set_dir"
+    __find_replace "REPLACE_APP_USER" "${SERVICE_USER:-${RUNAS_USER:-root}}" "$set_dir"
+    __find_replace "REPLACE_WWW_USER" "${SERVICE_USER:-${RUNAS_USER:-root}}" "$set_dir"
+    __find_replace "REPLACE_APP_GROUP" "${SERVICE_GROUP:-${SERVICE_USER:-${RUNAS_USER:-root}}}" "$set_dir"
+    __find_replace "REPLACE_WWW_GROUP" "${SERVICE_GROUP:-${SERVICE_USER:-${RUNAS_USER:-root}}}" "$set_dir"
+    __find_replace "REPLACE_SERVICE_USER" "${SERVICE_USER:-${RUNAS_USER:-root}}" "$set_dir"
+    [ -n "$SERVICE_PORT" ] && __find_replace "REPLACE_SERVER_PORT" "${SERVICE_PORT:-80}" "$set_dir"
+    [ -n "$HOSTNAME" ] && __find_replace "REPLACE_SERVER_NAME" "${FULL_DOMAIN_NAME:-$HOSTNAME}" "$set_dir"
+    [ -n "$CONTAINER_NAME" ] && __find_replace "REPLACE_SERVER_SOFTWARE" "${CONTAINER_NAME:-docker}" "$set_dir"
+    [ -n "$WWW_ROOT_DIR" ] && __find_replace "REPLACE_SERVER_WWW_DIR" "${WWW_ROOT_DIR:-/usr/share/httpd/default}" "$set_dir"
+  done
   mkdir -p "${TMP_DIR:-/tmp/$SERVICE_NAME}" "${RUN_DIR:-/run/$SERVICE_NAME}" "${LOG_DIR:-/data/log/$SERVICE_NAME}"
   chmod -f 777 "${TMP_DIR:-/tmp/$SERVICE_NAME}" "${RUN_DIR:-/run/$SERVICE_NAME}" "${LOG_DIR:-/data/log/$SERVICE_NAME}"
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+__initialize_database() {
+  [ "$IS_DATABASE_SERVICE" = "yes" ] || return 0
+  local dir="${1:-$ETC_DIR}"
+  local db_normal_user="${DATABASE_USER_NORMAL:-$user_name}"
+  local db_normal_pass="${DATABASE_PASS_NORMAL:-$user_pass}"
+  local db_admin_user="${DATABASE_USER_ROOT:-$root_user_name}"
+  local db_admin_pass="${DATABASE_PASS_ROOT:-$root_user_pass}"
+  __find_replace "REPLACE_USER_NAME" "$db_normal_user" "$dir"
+  __find_replace "REPLACE_USER_PASS" "$db_normal_pass" "$dir"
+  __find_replace "REPLACE_DATABASE_USER" "$db_normal_user" "$dir"
+  __find_replace "REPLACE_DATABASE_PASS" "$db_normal_pass" "$dir"
+  __find_replace "REPLACE_ROOT_ADMIN" "$db_admin_user" "$dir"
+  __find_replace "REPLACE_ROOT_PASS" "$db_admin_pass" "$dir"
+  __find_replace "REPLACE_DATABASE_ROOT_USER" "$db_admin_user" "$dir"
+  __find_replace "REPLACE_DATABASE_ROOT_PASS" "$db_admin_pass" "$dir"
+  __find_replace "REPLACE_DATABASE_NAME" "$DATABASE_NAME" "$dir"
+  __find_replace "REPLACE_DATABASE_DIR" "$DATABASE_DIR" "$dir"
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+__initialize_db_users() {
+  [ "$IS_DATABASE_SERVICE" = "yes" ] || return 0
+  db_normal_user="${DATABASE_USER_NORMAL:-$user_name}"
+  db_normal_pass="${DATABASE_PASS_NORMAL:-$user_pass}"
+  db_admin_user="${DATABASE_USER_ROOT:-$root_user_name}"
+  db_admin_pass="${DATABASE_PASS_ROOT:-$root_user_pass}"
+  export user_name="$db_normal_user" user_pass="$db_normal_pass" root_user_name="$db_admin_user" root_user_pass="$db_admin_pass"
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __initialize_system_etc() {
@@ -702,18 +788,35 @@ __initialize_data_dir() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 __initialize_www_root() {
-  if [ "$DATA_DIR_INITIALIZED" = "false" ] && [ -n "$WWW_ROOT_DIR" ]; then
-    if [ -d "$DEFAULT_DATA_DIR/data/htdocs" ]; then
-      __is_dir_empty "$WWW_ROOT_DIR/" && cp -Rf "$DEFAULT_DATA_DIR/data/htdocs/." "$WWW_ROOT_DIR/" 2>/dev/null
-    fi
+  local WWW_INIT=""
+  local WWW_TEMPLATE=""
+  [ -d "/usr/share/httpd/default" ] && WWW_TEMPLATE="/usr/share/httpd/default"
+  [ "$WWW_ROOT_DIR" = "/app" ] && WWW_INIT="${WWW_INIT:-true}"
+  [ "$WWW_ROOT_DIR" = "/data/htdocs" ] && WWW_INIT="${WWW_INIT:-true}"
+  __is_dir_empty "$WWW_ROOT_DIR/" && WWW_INIT="true" || WWW_INIT="false"
+  if [ "$WWW_INIT" = "true" ] && [ -d "$WWW_TEMPLATE" ]; then
+    cp -Rf "$DEFAULT_DATA_DIR/data/htdocs/." "$WWW_ROOT_DIR/" 2>/dev/null
   fi
-  if [ -n "$WWW_ROOT_DIR" ]; then
-    if [ -d "$DEFAULT_DATA_DIR/htdocs/www" ] && [ ! -d "$WWW_ROOT_DIR" ]; then
-      mkdir -p "$WWW_ROOT_DIR" "$WWW_ROOT_DIR/health"
-      cp -Rf "$DEFAULT_DATA_DIR/htdocs/www/." "$WWW_ROOT_DIR/"
-      [ -f "$WWW_ROOT_DIR/health/index.txt" ] || echo "OK" >"$WWW_ROOT_DIR/health/index.txt"
-      [ -f "$WWW_ROOT_DIR/health/index.json" ] || echo '{"status":"ok"}' >"$WWW_ROOT_DIR/health/index.json"
-    fi
+  __initialize_web_health "$WWW_ROOT_DIR"
+  find "$WWW_ROOT_DIR" -type d -exec chmod -f 777 {} \;
+}
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+__is_htdocs_mounted() {
+  echo "$IMPORT_FROM_GIT" | grep -qE 'https://|http://|git://|ssh://' || unset IMPORT_FROM_GIT
+  if [ -n "$IMPORT_FROM_GIT" ] && [ "$(command -v "git")" ]; then
+    export WWW_ROOT_DIR="/data/htdocs"
+    __is_dir_empty "$WWW_ROOT_DIR" || WWW_ROOT_DIR="/data/wwwroot"
+    echo "Importing project from $IMPORT_FROM_GIT to $WWW_ROOT_DIR"
+    git clone -q "$IMPORT_FROM_GIT" "$WWW_ROOT_DIR"
+  elif [ -d "/app" ]; then
+    export WWW_ROOT_DIR="/app"
+  elif [ -d "/data/htdocs" ]; then
+    export WWW_ROOT_DIR="/data/htdocs"
+  elif [ -d "/data/wwwroot" ]; then
+    export WWW_ROOT_DIR="/data/wwwroot"
+  else
+    WWW_ROOT_DIR="${ENV_WWW_ROOT_DIR:-$WWW_ROOT_DIR}"
+    export WWW_ROOT_DIR="${WWW_ROOT_DIR:-/usr/share/httpd/default}"
   fi
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -748,19 +851,56 @@ __start_php_dev_server() {
 }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # set variables from function calls
-SET_RANDOM_PASS="${SET_RANDOM_PASS:-$(__random_password 16)}"
+export INIT_DATE="${INIT_DATE:-$(date)}"
+export START_SERVICES="${START_SERVICES:-yes}"
+export ENTRYPOINT_MESSAGE="${ENTRYPOINT_MESSAGE:-yes}"
+export ENTRYPOINT_FIRST_RUN="${ENTRYPOINT_FIRST_RUN:-yes}"
+export DATA_DIR_INITIALIZED="${DATA_DIR_INITIALIZED:-false}"
+export CONFIG_DIR_INITIALIZED="${CONFIG_DIR_INITIALIZED:-false}"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# System
+export LANG="${LANG:-C.UTF-8}"
+export LC_ALL="${LANG:-C.UTF-8}"
+export TZ="${TZ:-${TIMEZONE:-America/New_York}}"
+export HOSTNAME="${FULL_DOMAIN_NAME:-${SERVER_HOSTNAME:-$HOSTNAME}}"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# Default directories
+export SSL_DIR="${SSL_DIR:-/config/ssl}"
+export SSL_CA="${SSL_CERT:-/config/ssl/ca.crt}"
+export SSL_KEY="${SSL_KEY:-/config/ssl/localhost.pem}"
+export SSL_CERT="${SSL_CERT:-/config/ssl/localhost.crt}"
+export BACKUP_DIR="${BACKUP_DIR:-/data/backups}"
+export LOCAL_BIN_DIR="${LOCAL_BIN_DIR:-/usr/local/bin}"
+export DEFAULT_DATA_DIR="${DEFAULT_DATA_DIR:-/usr/local/share/template-files/data}"
+export DEFAULT_CONF_DIR="${DEFAULT_CONF_DIR:-/usr/local/share/template-files/config}"
+export DEFAULT_TEMPLATE_DIR="${DEFAULT_TEMPLATE_DIR:-/usr/local/share/template-files/defaults}"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 CONTAINER_IP4_ADDRESS="${CONTAINER_IP4_ADDRESS:-$(__get_ip4)}"
 CONTAINER_IP6_ADDRESS="${CONTAINER_IP6_ADDRESS:-$(__get_ip6)}"
-PHP_INI_DIR="${PHP_INI_DIR:-$(__find_php_ini)}"
-PHP_BIN_DIR="${PHP_BIN_DIR:-$(__find_php_bin)}"
-HTTPD_CONFIG_FILE="${HTTPD_CONFIG_FILE:-$(__find_httpd_conf)}"
-NGINX_CONFIG_FILE="${NGINX_CONFIG_FILE:-$(__find_nginx_conf)}"
-LIGHTTPD_CONFIG_FILE="${LIGHTTPD_CONFIG_FILE:-$(__find_lighttpd_conf)}"
-MARIADB_CONFIG_FILE="${MARIADB_CONFIG_FILE:-$(__find_mysql_conf)}"
-POSTGRES_CONFIG_FILE="${POSTGRES_CONFIG_FILE:-$(__find_pgsql_conf)}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# export variables
-
+# Additional
+export SET_RANDOM_PASS="${SET_RANDOM_PASS:-$(__random_password 16)}"
+export PHP_INI_DIR="${PHP_INI_DIR:-$(__find_php_ini)}"
+export PHP_BIN_DIR="${PHP_BIN_DIR:-$(__find_php_bin)}"
+export HTTPD_CONFIG_FILE="${HTTPD_CONFIG_FILE:-$(__find_httpd_conf)}"
+export NGINX_CONFIG_FILE="${NGINX_CONFIG_FILE:-$(__find_nginx_conf)}"
+export MYSQL_CONFIG_FILE="${MYSQL_CONFIG_FILE:-$(__find_mysql_conf)}"
+export PGSQL_CONFIG_FILE="${PGSQL_CONFIG_FILE:-$(__find_pgsql_conf)}"
+export LIGHTTPD_CONFIG_FILE="${LIGHTTPD_CONFIG_FILE:-$(__find_lighttpd_conf)}"
+export MARIADB_CONFIG_FILE="${MARIADB_CONFIG_FILE:-$(__find_mysql_conf)}"
+export POSTGRES_CONFIG_FILE="${POSTGRES_CONFIG_FILE:-$(__find_pgsql_conf)}"
+export MONGODB_CONFIG_FILE="${MONGODB_CONFIG_FILE:-$(__find_mongodb_conf)}"
+export ENTRYPOINT_PID_FILE="${ENTRYPOINT_PID_FILE:-/run/init.d/entrypoint.pid}"
+export ENTRYPOINT_INIT_FILE="${ENTRYPOINT_INIT_FILE:-/config/.entrypoint.done}"
+export ENTRYPOINT_DATA_INIT_FILE="${ENTRYPOINT_DATA_INIT_FILE:-/data/.docker_has_run}"
+export ENTRYPOINT_CONFIG_INIT_FILE="${ENTRYPOINT_CONFIG_INIT_FILE:-/config/.docker_has_run}"
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# is already Initialized
+[ -z "$DATA_DIR_INITIALIZED" ] && { [ -f "$ENTRYPOINT_DATA_INIT_FILE" ] && DATA_DIR_INITIALIZED="true" || DATA_DIR_INITIALIZED="false"; }
+[ -z "$CONFIG_DIR_INITIALIZED" ] && { [ -f "$ENTRYPOINT_CONFIG_INIT_FILE" ] && CONFIG_DIR_INITIALIZED="true" || CONFIG_DIR_INITIALIZED="false"; }
+[ -z "$ENTRYPOINT_FIRST_RUN" ] && { { [ -f "$ENTRYPOINT_PID_FILE" ] || [ -f "$ENTRYPOINT_INIT_FILE" ]; } && ENTRYPOINT_FIRST_RUN="no" || ENTRYPOINT_FIRST_RUN="true"; }
+export ENTRYPOINT_DATA_INIT_FILE DATA_DIR_INITIALIZED ENTRYPOINT_CONFIG_INIT_FILE CONFIG_DIR_INITIALIZED
+export ENTRYPOINT_PID_FILE ENTRYPOINT_INIT_FILE ENTRYPOINT_FIRST_RUN
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # export the functions
 export -f __start_init_scripts
