@@ -237,6 +237,6 @@ VOLUME [ "/config","/data" ]
 
 EXPOSE ${ENV_PORTS}
 
-CMD [ "start","all" ]
+CMD [ "tail","-f","/dev/null" ]
 ENTRYPOINT [ "tini","--","/usr/local/bin/entrypoint.sh" ]
 HEALTHCHECK --start-period=10m --interval=5m --timeout=15s CMD [ "/usr/local/bin/entrypoint.sh", "healthcheck" ]
