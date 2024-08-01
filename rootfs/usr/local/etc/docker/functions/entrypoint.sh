@@ -505,8 +505,8 @@ __create_service_user() {
   grep -sq "^$create_user:" "/etc/passwd" && grep -sq "^$create_group:" "/etc/group" && return
   [ "$create_user" = "root" ] && [ "$create_group" = "root" ] && return 0
   if [ "$RUNAS_USER" != "root" ] && [ "$RUNAS_USER" != "" ]; then
-    [ "$create_user" = "root" ] && create_user="$RUNAS_USER"
-    [ "$create_group" = "root" ] && create_group="$RUNAS_USER"
+    [ "$create_user" = "root" ] && create_user="$RUNAS_USER" || create_user="$RUNAS_USER"
+    [ "$create_group" = "root" ] && create_group="$RUNAS_USER" || create_group="$RUNAS_USER"
   fi
   create_uid="$(__get_uid "$set_user" || echo "$create_uid")"
   create_gid="$(__get_gid "$set_user" || echo "$create_gid")"
