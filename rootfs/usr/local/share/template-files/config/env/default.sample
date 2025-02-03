@@ -14,7 +14,7 @@
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # directory settings
 #BACKUP_DIR="${BACKUP_DIR:-/data/backups}"
-#WWW_ROOT_DIR="${WWW_ROOT_DIR:-/usr/share/httpd/default}"
+#WWW_ROOT_DIR="${WWW_ROOT_DIR:-/usr/local/share/httpd/default}"
 #LOCAL_BIN_DIR="${LOCAL_BIN_DIR:-/usr/local/bin}"
 #DATABASE_BASE_DIR="${DATABASE_BASE_DIR:-/data/db}"
 #DEFAULT_DATA_DIR="${DEFAULT_DATA_DIR:-/usr/local/share/template-files/data}"
@@ -128,7 +128,7 @@ ENTRYPOINT_FIRST_RUN="${ENTRYPOINT_FIRST_RUN:-yes}"
 DATA_DIR_INITIALIZED="${DATA_DIR_INITIALIZED:-false}"
 CONFIG_DIR_INITIALIZED="${CONFIG_DIR_INITIALIZED:-false}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-if [ -f "$ENTRYPOINT_PID_FILE" ] || [ -f "$ENTRYPOINT_INIT_FILE" ];
-  then START_SERVICES="no" ENTRYPOINT_MESSAGE="no" ENTRYPOINT_FIRST_RUN="no"
+if [ -f "$ENTRYPOINT_PID_FILE" ] || [ -f "$ENTRYPOINT_INIT_FILE" ]; then
+  START_SERVICES="no" ENTRYPOINT_MESSAGE="no" ENTRYPOINT_FIRST_RUN="no"
 fi
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

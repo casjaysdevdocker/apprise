@@ -74,7 +74,7 @@ PRE_EXEC_MESSAGE=""
 DATABASE_DIR="${DATABASE_DIR_APPRISE:-/data/db/sqlite}"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set webroot
-WWW_ROOT_DIR="/usr/share/httpd/default"
+WWW_ROOT_DIR="/usr/local/share/httpd/default"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Default predefined variables
 DATA_DIR="/data/apprise"   # set data directory
