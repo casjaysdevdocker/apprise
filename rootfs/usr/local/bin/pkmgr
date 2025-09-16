@@ -2,13 +2,8 @@
 # shellcheck shell=sh
 # shellcheck disable=SC2016
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-set -e
-[ -n "$_DEBUG" ] && set -x || { [ "$1" = "--debug" ]&& set -x && shift 1; }
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 USER_UID="$(id -u)"
 USER_GID="$(id -g)"
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-[ -f "/etc/pkmgr/options.conf" ] && . "/etc/pkmgr/options.conf"
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 if [ -x "$(command -v apt 2>/dev/null)" ]; then
   export DEBIAN_FRONTEND=noninteractive
@@ -17,6 +12,7 @@ if [ -x "$(command -v apt 2>/dev/null)" ]; then
   pkmgr_mkcache_cmd="$pkmgr_cmd update"
   pkmgr_update_cmd="$pkmgr_cmd upgrade -yy"
   pkmgr_install_cmd="$pkmgr_cmd install -yy $PKMGR_OPTS"
+  pkmgr_install_post="$pkmgr_cmd --fix-broken install"
 elif [ -x "$(command -v apt-get 2>/dev/null)" ]; then
   export DEBIAN_FRONTEND=noninteractive
   pkmgr_cmd="apt-get"
@@ -24,6 +20,7 @@ elif [ -x "$(command -v apt-get 2>/dev/null)" ]; then
   pkmgr_mkcache_cmd="$pkmgr_cmd update"
   pkmgr_update_cmd="$pkmgr_cmd upgrade -yy"
   pkmgr_install_cmd="$pkmgr_cmd install -yy $PKMGR_OPTS"
+  pkmgr_install_post="$pkmgr_cmd --fix-broken install"
 elif [ -x "$(command -v dnf 2>/dev/null)" ]; then
   pkmgr_cmd="dnf"
   pkmgr_clean_cmd="$pkmgr_cmd clean all"
@@ -67,8 +64,8 @@ if [ -f "/config/pkmgr/settings.conf" ]; then
 elif [ -f "/etc/pkmgr/settings.conf" ]; then
   . "/etc/pkmgr/settings.conf"
 else
-mkdir -p "/config/pkmgr"
-cat <<EEOF >"/config/pkmgr/settings.conf"
+  mkdir -p "/config/pkmgr"
+  cat <<EEOF >"/config/pkmgr/settings.conf"
 pkmgr_cmd="$pkmgr_cmd"
 pkmgr_clean_cmd="$pkmgr_clean_cmd"
 pkmgr_update_cmd="$pkmgr_update_cmd"
@@ -80,13 +77,51 @@ fi
 [ -n "$pkmgr_cmd" ] || { echo "Can not determine the package manager" && exit 1; }
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 case "$1" in
+pip)
+  shift 1
+  pip_bin="$(command -v python3 2>/dev/null || command -v python2 2>/dev/null || command -v python 2>/dev/null || echo "")"
+  py_version="$($pip_bin --version | sed 's|[pP]ython ||g' | awk -F '.' '{print $1$2}' | grep '[0-9]' || echo "0")"
+  [ "$py_version" -gt "310" ] && pip_opts="--break-system-packages " || pip_opts=""
+  case "$1" in
+  install)
+    shift 1
+    pkg_list="$*"
+    for pkg in $pkg_list; do
+      $pip_bin -m pip $pip_opts "$pkg"
+    done
+    ;;
+  *)
+    for pkg in "$@"; do
+      $pip_bin -m pip "$pkg"
+    done
+    ;;
+  esac
+  exit
+  ;;
+install)
+  shift 1
+  [ -n "$1" ] || exit 0
+  [ "$USER_UID" -eq 0 ] || [ "$USER" = "root" ] || pkmgr_install_cmd="sudo $pkmgr_install_cmd"
+  if [ -f "$1" ]; then
+    install_list="$(cat "$1")"
+  else
+    install_list="$*"
+  fi
+  for pkg in $install_list;do
+    echo "installing packages command: $pkmgr_install_cmd $pkg"
+    $pkmgr_install_cmd $pkg
+    if [ -n "$pkmgr_install_post" ]; then eval $pkmgr_install_post; fi
+  done
+  exit
+  ;;
 update | upgrade)
   shift $#
   [ "$USER_UID" -eq 0 ] || [ "$USER" = "root" ] || pkmgr_update_cmd="sudo $pkmgr_install_cmd"
   echo "Updating packages command: $pkmgr_update_cmd"
-  $pkmgr_mkcache_cmd;$pkmgr_update_cmd
+  $pkmgr_mkcache_cmd
+  $pkmgr_update_cmd
   exit $?
-;;
+  ;;
 clean)
   shift $#
   [ -n "$1" ] || exit 0
@@ -94,28 +129,14 @@ clean)
   echo "Cleaning package cache: $pkmgr_clean_cmd"
   $pkmgr_clean_cmd
   exit $?
-;;
-install)
-  shift 1
-  [ -n "$1" ] || exit 0
-  [ "$USER_UID" -eq 0 ] || [ "$USER" = "root" ] || pkmgr_install_cmd="sudo $pkmgr_install_cmd"
-  if [ -f "$1" ]; then
-    install_list="$(cat "$1")"
-    echo 'installing packages from file with command: '$pkmgr_install_cmd' "$(<"$1")"'
-  else
-    install_list="$*"
-    echo "installing packages command: $pkmgr_install_cmd $install_list"
-  fi
-  $pkmgr_install_cmd $install_list
-  exit $?
-;;
+  ;;
 *)
   [ -n "$1" ] || exit 0
   [ "$USER_UID" -eq 0 ] || [ "$USER" = "root" ] || pkmgr_cmd="sudo $pkmgr_cmd"
   echo "executing packages command: $pkmgr_cmd $*"
   $pkmgr_cmd "$@"
   exit $?
-;;
+  ;;
 esac
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # end
