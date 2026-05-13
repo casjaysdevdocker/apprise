@@ -28,6 +28,15 @@ exitCode=0
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Predefined actions
 
+# Defensive: the nginx Alpine package creates the nginx user. Apprise itself
+# has no daemon user — we run as root and let gunicorn handle worker-level
+# privilege drops via PUID/PGID env if the user wants. Add an apprise system
+# user/group for /config/secure ownership.
+if command -v addgroup >/dev/null 2>&1 && command -v adduser >/dev/null 2>&1; then
+  addgroup -S apprise 2>/dev/null || true
+  adduser -S -G apprise -H -h /var/lib/apprise -s /sbin/nologin apprise 2>/dev/null || true
+fi
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 # Main script
 

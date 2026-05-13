@@ -1,0 +1,2 @@
+# Placeholder for distro-style /etc/nginx/conf.d.
+# Apprise itself includes /config/apprise/conf.d/*.conf for user overrides.

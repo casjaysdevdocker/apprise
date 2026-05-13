@@ -1,10 +1,10 @@
 # Docker image for apprise using the alpine template
 ARG IMAGE_NAME="apprise"
 ARG PHP_SERVER="apprise"
-ARG BUILD_DATE="202509161146"
+ARG BUILD_DATE="202605091200"
 ARG LANGUAGE="en_US.UTF-8"
 ARG TIMEZONE="America/New_York"
-ARG WWW_ROOT_DIR="/usr/local/share/httpd/default"
+ARG WWW_ROOT_DIR="/usr/local/share/apprise-api/webapp"
 ARG DEFAULT_FILE_DIR="/usr/local/share/template-files"
 ARG DEFAULT_DATA_DIR="/usr/local/share/template-files/data"
 ARG DEFAULT_CONF_DIR="/usr/local/share/template-files/config"
@@ -14,15 +14,15 @@ ARG PATH="/usr/local/etc/docker/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/us
 ARG USER="root"
 ARG SHELL_OPTS="set -e -o pipefail"
 
-ARG SERVICE_PORT="80"
-ARG EXPOSE_PORTS="80"
-ARG PHP_VERSION="system"
+ARG SERVICE_PORT="8000"
+ARG EXPOSE_PORTS=""
+ARG PHP_VERSION="none"
 ARG NODE_VERSION="system"
 ARG NODE_MANAGER="system"
 
 ARG IMAGE_REPO="casjaysdevdocker/apprise"
 ARG IMAGE_VERSION="latest"
-ARG CONTAINER_VERSION=""
+ARG CONTAINER_VERSION="USE_DATE"
 
 ARG PULL_URL="casjaysdev/alpine"
 ARG DISTRO_VERSION="${IMAGE_VERSION}"
@@ -54,7 +54,7 @@ ARG PHP_SERVER
 ARG SHELL_OPTS
 ARG PATH
 
-ARG PACK_LIST=" "
+ARG PACK_LIST="bash tini curl wget git tar gzip tzdata ca-certificates pwgen nginx python3 py3-pip py3-setuptools py3-wheel py3-django py3-gunicorn py3-gevent py3-cryptography py3-requests py3-yaml py3-paho-mqtt py3-aiodns py3-prometheus-client py3-charset-normalizer py3-markdown py3-six py3-django-prometheus py3-zope-event py3-zope-interface "
 
 ENV ENV=~/.profile
 ENV SHELL="/bin/sh"
@@ -68,7 +68,7 @@ ENV HOSTNAME="casjaysdevdocker-apprise"
 USER ${USER}
 WORKDIR /root
 
-COPY ./rootfs/usr/local/bin/. /usr/local/bin/
+COPY ./rootfs/. /
 
 RUN set -e; \
   echo "Updating the system and ensuring bash is installed"; \
@@ -76,7 +76,13 @@ RUN set -e; \
 
 RUN set -e; \
   echo "Setting up prerequisites"; \
-  true
+  apk --no-cache add bash; \
+  SH_CMD="$(which sh 2>/dev/null||command -v sh 2>/dev/null)"; \
+  BASH_CMD="$(which bash 2>/dev/null||command -v bash 2>/dev/null)"; \
+  [ -x "$BASH_CMD" ] && symlink "$BASH_CMD" "/bin/sh" || true; \
+  [ -x "$BASH_CMD" ] && symlink "$BASH_CMD" "/usr/bin/sh" || true; \
+  [ -x "$BASH_CMD" ] && [ "$SH_CMD" != "/bin/sh" ] && symlink "$BASH_CMD" "$SH_CMD" || true; \
+  [ -n "$BASH_CMD" ] && sed -i 's|root:x:.*|root:x:0:0:root:/root:'$BASH_CMD'|g' "/etc/passwd" || true
 
 ENV SHELL="/bin/bash"
 SHELL [ "/bin/bash", "-c" ]
@@ -91,7 +97,12 @@ RUN echo "Initializing the system"; \
 
 RUN echo "Creating and editing system files "; \
   $SHELL_OPTS; \
-  [ -f "/root/.profile" ] || touch "/root/.profile"; \
+  rm -Rf "/etc/apk/repositories"; \
+  [ "$DISTRO_VERSION" = "latest" ] && DISTRO_VERSION="edge";[ "$DISTRO_VERSION" = "edge" ] || DISTRO_VERSION="v${DISTRO_VERSION}"; \
+  echo "http://dl-cdn.alpinelinux.org/alpine/${DISTRO_VERSION}/main" >>"/etc/apk/repositories"; \
+  echo "http://dl-cdn.alpinelinux.org/alpine/${DISTRO_VERSION}/community" >>"/etc/apk/repositories"; \
+  if [ "${DISTRO_VERSION}" = "edge" ]; then echo "http://dl-cdn.alpinelinux.org/alpine/${DISTRO_VERSION}/testing" >>"/etc/apk/repositories";fi; \
+  apk update; apk upgrade --no-cache; \
   if [ -f "/root/docker/setup/01-system.sh" ];then echo "Running the system script";/root/docker/setup/01-system.sh||{ echo "Failed to execute /root/docker/setup/01-system.sh" >&2 && exit 10; };echo "Done running the system script";fi; \
   echo ""
 
@@ -109,7 +120,6 @@ RUN echo "Initializing packages before copying files to image"; \
   if [ -f "/root/docker/setup/02-packages.sh" ];then echo "Running the packages script";/root/docker/setup/02-packages.sh||{ echo "Failed to execute /root/docker/setup/02-packages.sh" >&2 && exit 10; };echo "Done running the packages script";fi; \
   echo ""
 
-COPY ./rootfs/. /
 COPY ./Dockerfile /root/docker/Dockerfile
 
 RUN echo "Updating system files "; \
@@ -119,7 +129,7 @@ RUN echo "Updating system files "; \
   echo 'hosts: files dns' >"/etc/nsswitch.conf"; \
   [ "$PHP_VERSION" = "system" ] && PHP_VERSION="php" || true; \
   PHP_BIN="$(command -v ${PHP_VERSION} 2>/dev/null || true)"; \
-  PHP_FPM="$(ls /usr/*bin/php*fpm* 2>/dev/null || true)"; \
+  set -- /usr/*bin/php*fpm*; [ -e "$1" ] && PHP_FPM="$1" || PHP_FPM=""; \
   pip_bin="$(command -v python3 2>/dev/null || command -v python2 2>/dev/null || command -v python 2>/dev/null || true)"; \
   py_version="$(command $pip_bin --version | sed 's|[pP]ython ||g' | awk -F '.' '{print $1$2}' | grep '[0-9]' || true)"; \
   [ "$py_version" -gt "310" ] && pip_opts="--break-system-packages " || pip_opts=""; \
@@ -176,7 +186,7 @@ RUN echo "Deleting unneeded files"; \
   rm -rf /lib/systemd/system/sockets.target.wants/*udev* || true; \
   rm -rf /lib/systemd/system/sockets.target.wants/*initctl* || true; \
   rm -Rf /usr/share/doc/* /var/tmp/* /var/cache/*/* /root/.cache/* /usr/share/info/* /tmp/* || true; \
-  if [ -d "/lib/systemd/system/sysinit.target.wants" ];then cd "/lib/systemd/system/sysinit.target.wants" && rm -f $(ls | grep -v systemd-tmpfiles-setup);fi; \
+  if [ -d "/lib/systemd/system/sysinit.target.wants" ];then cd "/lib/systemd/system/sysinit.target.wants" && for want_file in *; do [ "$want_file" = "systemd-tmpfiles-setup" ] || rm -f "$want_file"; done; fi; \
   if [ -f "/root/docker/setup/07-cleanup.sh" ];then echo "Running the cleanup script";/root/docker/setup/07-cleanup.sh||{ echo "Failed to execute /root/docker/setup/07-cleanup.sh" >&2 && exit 10; };echo "Done running the cleanup script";fi; \
   echo ""
 
@@ -193,6 +203,7 @@ ARG SERVICE_PORT
 ARG EXPOSE_PORTS
 ARG BUILD_VERSION
 ARG IMAGE_VERSION
+ARG GIT_COMMIT
 ARG WWW_ROOT_DIR
 ARG DEFAULT_FILE_DIR
 ARG DEFAULT_DATA_DIR
@@ -219,10 +230,10 @@ LABEL org.opencontainers.image.authors="${LICENSE}"
 LABEL org.opencontainers.image.created="${BUILD_DATE}"
 LABEL org.opencontainers.image.version="${BUILD_VERSION}"
 LABEL org.opencontainers.image.schema-version="${BUILD_VERSION}"
-LABEL org.opencontainers.image.url="docker.io"
-LABEL org.opencontainers.image.source="docker.io"
+LABEL org.opencontainers.image.url="https://docker.io/casjaysdevdocker/apprise"
+LABEL org.opencontainers.image.source="https://docker.io/casjaysdevdocker/apprise"
 LABEL org.opencontainers.image.vcs-type="Git"
-LABEL org.opencontainers.image.revision="${BUILD_VERSION}"
+LABEL org.opencontainers.image.revision="${GIT_COMMIT}"
 LABEL org.opencontainers.image.source="https://github.com/casjaysdevdocker/apprise"
 LABEL org.opencontainers.image.documentation="https://github.com/casjaysdevdocker/apprise"
 LABEL com.github.containers.toolbox="false"
@@ -252,5 +263,8 @@ VOLUME [ "/config","/data" ]
 
 EXPOSE ${SERVICE_PORT} ${ENV_PORTS}
 
-ENTRYPOINT [ "tini","--","/usr/local/bin/entrypoint.sh" ]
+STOPSIGNAL SIGRTMIN+3
+
+ENTRYPOINT [ "tini", "-p", "SIGTERM","--", "/usr/local/bin/entrypoint.sh" ]
 HEALTHCHECK --start-period=10m --interval=5m --timeout=15s CMD [ "/usr/local/bin/entrypoint.sh", "healthcheck" ]
+

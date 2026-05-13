@@ -1,0 +1,17 @@
+# Sample apprise YAML configuration.
+# Copy/rename to /config/apprise/store/<key>.yml then POST to
+# http://<container-host>:8000/notify/<key> -d 'body=hello&title=test'
+#
+# Two equivalent formats are supported:
+#   - TEXT: one URL per line in /config/apprise/store/<key>.cfg
+#   - YAML: structured (this file)
+#
+# See https://github.com/caronc/apprise/wiki for the full URL syntax.
+
+urls:
+  # - mailto://user:password@gmail.com
+  # - tgram://botid/chatid
+  # - discord://webhook_id/webhook_token
+  # - slack://TokenA/TokenB/TokenC
+  # - pover://user@token
+  # - json://localhost

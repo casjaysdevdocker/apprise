@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# casjaysdevdocker/apprise - launches gunicorn (background) then nginx (foreground).
+#
+# Single command for the framework's EXEC_CMD_BIN slot.
+set -e
+
+# Runtime dirs
+mkdir -p /run/apprise /tmp/apprise /data/logs/apprise \
+         /config/apprise/store /config/apprise/attach /config/apprise/plugin
+chmod 1777 /tmp/apprise
+
+# Apprise-API env knobs (defaults; overridable via /config/env/apprise.sh)
+export APPRISE_CONFIG_DIR="${APPRISE_CONFIG_DIR:-/config/apprise/store}"
+export APPRISE_ATTACH_DIR="${APPRISE_ATTACH_DIR:-/config/apprise/attach}"
+export APPRISE_PLUGIN_PATHS="${APPRISE_PLUGIN_PATHS:-/config/apprise/plugin}"
+export PYTHONPATH="${PYTHONPATH:-/usr/local/share/apprise-api/webapp}"
+export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-core.settings}"
+
+# Resolve the gunicorn binary; Alpine's py3-gunicorn installs to /usr/bin/gunicorn
+GUNICORN_BIN="$(command -v gunicorn || true)"
+if [ -z "$GUNICORN_BIN" ]; then
+  echo "gunicorn not found in PATH" >&2
+  exit 2
+fi
+
+# Start gunicorn in background (only if not already running)
+if ! pgrep -f 'gunicorn.*core.wsgi' >/dev/null 2>&1; then
+  cd /usr/local/share/apprise-api/webapp
+  "$GUNICORN_BIN" \
+    --bind unix:/run/apprise/gunicorn.sock \
+    --workers "${GUNICORN_WORKERS:-4}" \
+    --timeout "${GUNICORN_TIMEOUT:-120}" \
+    --worker-tmp-dir /dev/shm \
+    --access-logfile /data/logs/apprise/gunicorn-access.log \
+    --error-logfile /data/logs/apprise/gunicorn-err.log \
+    core.wsgi:application \
+    >>/data/logs/apprise/gunicorn.log 2>>/data/logs/apprise/gunicorn-err.log &
+
+  # wait up to 30s for the unix socket
+  i=0
+  while [ ! -S /run/apprise/gunicorn.sock ] && [ $i -lt 30 ]; do
+    sleep 1
+    i=$((i + 1))
+  done
+  if [ ! -S /run/apprise/gunicorn.sock ]; then
+    echo "gunicorn failed to create socket /run/apprise/gunicorn.sock after 30s" >&2
+    cat /data/logs/apprise/gunicorn-err.log >&2 || true
+    exit 3
+  fi
+  # Allow nginx (running as 'nginx' user) to connect to the gunicorn socket
+  # (gunicorn creates it owned by the launching user, default mode 660).
+  chmod 666 /run/apprise/gunicorn.sock
+fi
+
+# nginx in foreground (nginx.conf has daemon off;)
+exec /usr/sbin/nginx -c /etc/nginx/nginx.conf
