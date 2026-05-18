@@ -1,0 +1,3 @@
+# Idea
+
+This image provides a self-hosted REST notification gateway built on top of the upstream `caronc/apprise-api` Django web application. It bundles **nginx + gunicorn + Django + the apprise notification library** into a single Alpine-based container so users can send push notifications to 80+ services (Slack, Discord, Telegram, Pushover, email, MQTT, and more) by POSTing to a simple HTTP endpoint. Persistent stateful configuration profiles (named bundles of notification URLs) live under `/config/apprise/store/` and survive container restarts, while nginx proxies all traffic on port 8000 to gunicorn over a Unix socket.

@@ -1,31 +1,32 @@
 #!/usr/bin/env bash
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202408270903-git
+# shellcheck shell=bash
+# - - - - - - - - - - - - - - - - - - - - - - - - -
+##@Version           :  202605131431-git
 # @@Author           :  CasjaysDev
 # @@Contact          :  CasjaysDev <docker-admin@casjaysdev.pro>
 # @@License          :  MIT
-# @@ReadME           :
-# @@Copyright        :  Copyright 2023 CasjaysDev
-# @@Created          :  Mon Aug 28 06:48:42 PM EDT 2023
+# @@Copyright        :  Copyright 2026 CasjaysDev
+# @@Created          :  Wed May 13 02:31:25 PM EDT 2026
 # @@File             :  03-files.sh
 # @@Description      :  script to run files
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# shellcheck shell=bash
-# shellcheck disable=SC2016
-# shellcheck disable=SC2031
-# shellcheck disable=SC2120
-# shellcheck disable=SC2155
-# shellcheck disable=SC2199
-# shellcheck disable=SC2317
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# @@Changelog        :  newScript
+# @@TODO             :  Refactor code
+# @@Other            :  N/A
+# @@Resource         :  N/A
+# @@Terminal App     :  yes
+# @@sudo/root        :  yes
+# @@Template         :  templates/dockerfiles/init_scripts/03-files.sh
+# - - - - - - - - - - - - - - - - - - - - - - - - -
+# shellcheck disable=SC1001,SC1003,SC2001,SC2003,SC2016,SC2031,SC2090,SC2115,SC2120,SC2155,SC2199,SC2229,SC2317,SC2329
+# - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set bash options
 set -o pipefail
 [ "$DEBUGGER" = "on" ] && echo "Enabling debugging" && set -x$DEBUGGER_OPTIONS
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set env variables
 exitCode=0
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - -
 # Predefined actions
 if [ -d "/tmp/bin" ]; then
   mkdir -p "/usr/local/bin"
@@ -79,11 +80,15 @@ if [ -d "/tmp/data" ]; then
   done
 fi
 unset data
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - -
 # Main script
 
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - -
 # Set the exit code
 #exitCode=$?
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - -
 exit $exitCode
+# - - - - - - - - - - - - - - - - - - - - - - - - -
+# ex: ts=2 sw=2 et filetype=sh
+# - - - - - - - - - - - - - - - - - - - - - - - - -
+

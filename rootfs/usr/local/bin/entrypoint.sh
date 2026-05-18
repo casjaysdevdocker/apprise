@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # - - - - - - - - - - - - - - - - - - - - - - - - -
-##@Version           :  202602061352-git
+##@Version           :  202605052024-git
 # @@Author           :  Jason Hempstead
 # @@Contact          :  jason@casjaysdev.pro
 # @@License          :  WTFPL
 # @@ReadME           :  entrypoint.sh --help
 # @@Copyright        :  Copyright: (c) 2026 Jason Hempstead, Casjays Developments
-# @@Created          :  Tuesday, May 05, 2026 14:38 EDT
+# @@Created          :  Wednesday, May 13, 2026 14:31 EDT
 # @@File             :  entrypoint.sh
 # @@Description      :  Entrypoint file for apprise
 # @@Changelog        :  New script
