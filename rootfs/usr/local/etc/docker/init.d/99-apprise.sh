@@ -371,9 +371,9 @@ __post_execute() {
     # show message
     __banner "$postMessageST"
     # Drop the sample apprise YAML into /config/apprise/ on first run
-    if [ -f /usr/local/share/template-files/config/apprise/apprise.yml.sample ] && \
+    if [ -f /etc/apprise/apprise.yml.sample ] && \
        [ ! -f /config/apprise/apprise.yml.sample ]; then
-      cp -f /usr/local/share/template-files/config/apprise/apprise.yml.sample /config/apprise/ 2>/dev/null || true
+      cp -f /etc/apprise/apprise.yml.sample /config/apprise/ 2>/dev/null || true
     fi
     # show exit message
     __banner "$postMessageEnd: Status $retVal"
