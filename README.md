@@ -36,7 +36,7 @@ dockermgr update apprise
 ## Install and run container
 
 ```shell
-dockerHome="/var/lib/srv/$USER/docker/casjaysdevdocker/apprise/apprise/latest/rootfs"
+dockerHome="/srv/$USER/docker/casjaysdevdocker/apprise/apprise/latest/rootfs"
 mkdir -p "$dockerHome/data" "$dockerHome/config"
 docker run -d \
   --restart always \
